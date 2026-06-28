@@ -178,7 +178,7 @@
   <div class="bar">
     <span class="mode" id="mode"><span class="dot"></span><span id="modeText">Local mode — not connected</span></span>
     <span class="spacer"></span>
-    <button class="btn ghost" id="btnLoad" disabled title="Connect a deployed Apps Script to enable">↧ Load roster from Sheet</button>
+    <button class="btn ghost" id="btnLoad" disabled title="Pull the latest shared schedule from the Sheet">↧ Refresh from Sheet</button>
     <button class="btn ghost" id="btnPush" disabled title="Connect a deployed Apps Script to enable">↥ Push assignments to Calendar</button>
     <button class="btn" id="btnExport">Export CSV</button>
     <button class="btn primary" id="btnSave" disabled title="Connect a deployed Apps Script to enable">Save</button>
@@ -248,7 +248,7 @@
   </section>
 
   <p class="foot-note">
-    Availability is one window per person — the <b>time in</b> and <b>time out</b> from your spreadsheet. Full coverage of a session shows green, partial overlap shows amber, no overlap shows red. To share this across the team and merge with Google Calendar, deploy the companion <code>Code.gs</code> and paste its <code>/exec</code> URL into <code>CONFIG.scriptUrl</code>: <b>Save</b> writes the roster and assignments to your Sheet, <b>Load roster from Sheet</b> pulls the four columns back in, and <b>Push</b> creates a calendar invite for every assignment.
+    Availability is one window per person — the <b>time in</b> and <b>time out</b> from your spreadsheet. Full coverage of a session shows green, partial overlap shows amber, no overlap shows red. The schedule is shared through your Sheet: the page pulls the latest saved state automatically when it opens, <b>Save</b> writes the roster, assignments and target counts back, and <b>Refresh from Sheet</b> re-pulls them. Changes are visible to others once they open or refresh the page — it's a shared document (last save wins), not a live feed. <b>Push</b> creates a calendar invite for every assignment.
   </p>
 </div>
 
@@ -393,7 +393,8 @@ function applyRoster(rows){
   if(hasHeader){
     start=1;
     first.forEach((c,i)=>{
-      if(/name/.test(c)) idx.name=i;
+      if(/^id$/.test(c.trim())) idx.id=i;
+      else if(/name/.test(c)) idx.name=i;
       else if(/role/.test(c)) idx.role=i;
       else if(/in/.test(c)) idx.in=i;
       else if(/out/.test(c)) idx.out=i;
@@ -405,8 +406,9 @@ function applyRoster(rows){
     const c=rows[r]; if(!c || !String(c[idx.name]||"").trim()) continue;
     const roleRaw=String(c[idx.role]||"").toLowerCase();
     const tin=parseTime(c[idx.in]), tout=parseTime(c[idx.out]);
+    const savedId = (idx.id!=null && String(c[idx.id]||"").trim()) ? String(c[idx.id]).trim() : null;
     next.push({
-      id:"p"+Date.now()+"_"+r,
+      id: savedId || ("p"+Date.now()+"_"+r),   // reuse the sheet's id so assignments reconnect
       name:String(c[idx.name]).trim(),
       role: roleRaw.startsWith("exec") ? "Executive" : "Volunteer",
       in: tin==null?DAY_START:tin,
@@ -420,6 +422,33 @@ function applyRoster(rows){
 function splitRows(text){
   return text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean)
     .map(l=> l.includes("\t") ? l.split("\t") : l.split(","));
+}
+/* rebuild the full shared schedule (roster + assignments + targets) from the Sheet */
+function applyAssignments(rows){
+  if(!rows || !rows.length) return;
+  const fresh={}; SESSIONS.forEach(s=>fresh[s.id]=[]);
+  rows.forEach((r,i)=>{
+    if(i===0 && String(r[0]).toLowerCase()==="sessionid") return;  // header
+    const sid=String(r[0]||""), pid=String(r[4]||"");
+    if(fresh[sid] && person(pid) && !fresh[sid].includes(pid)) fresh[sid].push(pid);
+  });
+  assign=fresh;
+}
+function applySessionTargets(rows){
+  if(!rows || !rows.length) return;
+  rows.forEach((r,i)=>{
+    if(i===0 && String(r[0]).toLowerCase()==="sessionid") return;
+    const s=SESSIONS.find(x=>x.id===String(r[0])); 
+    if(s && r[1]!=="" && !isNaN(+r[1])) s.need=+r[1];
+  });
+}
+async function pullState(){
+  const res=await api({action:"load"});
+  const n=applyRoster(res.team||[]);
+  applyAssignments(res.assignments);
+  applySessionTargets(res.sessions);
+  renderAll();
+  return n;
 }
 $("#btnPaste").addEventListener("click", ()=>{
   const n=applyRoster(splitRows($("#pasteBox").value));
@@ -573,25 +602,29 @@ $("#btnSave").addEventListener("click", async ()=>{
     flash($("#btnSave"),"Saved ✓"); }catch(e){ alert("Save failed — check the script URL and deployment."); }
 });
 $("#btnLoad").addEventListener("click", async ()=>{
-  try{ const res=await api({action:"load"});
-    const n=applyRoster(res.team||[]);
-    if(res.assign) assign=res.assign;
-    renderAll(); flash($("#btnLoad"), n?`Loaded ${n} ✓`:"Sheet empty");
-  }catch(e){ alert("Load failed — check the script URL and deployment."); }
+  try{ const n=await pullState(); flash($("#btnLoad"), n?`Loaded ${n} ✓`:"Sheet empty"); }
+  catch(e){ alert("Load failed — check the script URL and deployment."); }
 });
 $("#btnPush").addEventListener("click", async ()=>{
-  if(!confirm("Create calendar invites for every current assignment?")) return;
+  if(!confirm("Sync calendar invites?\n\nNew assignments get an invite, and any invite that no longer applies is cancelled (removed from that person's calendar). Unchanged assignments are left as-is.")) return;
   try{
     const items=[];
     SESSIONS.forEach(s=>assign[s.id].forEach(pid=>{ const p=person(pid);
       if(p&&p.email) items.push({sessionId:s.id, title:s.name, start:s.start, end:s.end, email:p.email}); }));
     const res=await api({action:"pushAssignments", date:"2026-07-24", items});
-    flash($("#btnPush"), `Pushed ${res.created||0} ✓`);
+    flash($("#btnPush"), `Sent ${res.created||0} · cancelled ${res.cancelled||0} ✓`);
   }catch(e){ alert("Push failed — check the script deployment and calendar permissions."); }
 });
 
 setMode();
 renderAll();
+// On open, pull the shared schedule so every user sees the same saved state.
+if(CONFIG.scriptUrl){
+  $("#modeText").textContent="Loading shared schedule…";
+  pullState()
+    .then(n=>{ $("#modeText").textContent="Connected to Sheet"; })
+    .catch(()=>{ $("#modeText").textContent="Connected (load failed)"; });
+}
 </script>
 </body>
 </html>
