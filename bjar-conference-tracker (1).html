@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BJAR Conference — Personnel & Session Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16243a; --ink-soft:#46556b; --ink-faint:#7c8798;
+    --paper:#f3efe4; --card:#fffdf8; --card-2:#fbf8f0;
+    --line:#e2dac8; --line-soft:#ece5d6;
+    --ocean:#1f6f78; --ocean-dk:#155057; --gold:#b5852f;
+    --ok:#2f7d56; --ok-bg:#dcefe2; --ok-line:#a9d6bc;
+    --tent:#a9772a; --tent-bg:#f5e9cd; --tent-line:#e3c98a;
+    --bad:#ab4127; --bad-bg:#f6dfd7; --bad-line:#e3b4a6;
+    --shadow:0 1px 2px rgba(22,36,58,.06), 0 6px 22px rgba(22,36,58,.06);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    color:var(--ink); background:var(--paper);
+    background-image:radial-gradient(circle at 1px 1px, rgba(22,36,58,.035) 1px, transparent 0);
+    background-size:22px 22px;
+    -webkit-font-smoothing:antialiased; line-height:1.5;
+  }
+  .wrap{max-width:1180px; margin:0 auto; padding:26px 20px 80px}
+
+  .masthead{border-bottom:2px solid var(--ink); padding-bottom:14px; margin-bottom:8px}
+  .eyebrow{font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:var(--ocean-dk); font-weight:600}
+  .masthead h1{font-family:"Fraunces",Georgia,serif; font-weight:600; font-size:clamp(26px,4.5vw,40px);
+    line-height:1.04; margin:6px 0 4px; letter-spacing:-.01em}
+  .masthead .meta{display:flex; flex-wrap:wrap; gap:6px 18px; font-size:13px; color:var(--ink-soft); margin-top:6px}
+  .masthead .meta b{color:var(--ink); font-weight:600}
+
+  .bar{display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:16px 0 24px}
+  .mode{display:inline-flex; align-items:center; gap:7px; font-size:12px; font-weight:600;
+    padding:6px 11px; border-radius:999px; border:1px solid var(--line); background:var(--card)}
+  .mode .dot{width:8px;height:8px;border-radius:50%;background:var(--ink-faint)}
+  .mode.live .dot{background:var(--ok)}
+  .spacer{flex:1}
+  button{font-family:inherit; cursor:pointer}
+  .btn{font-size:13px; font-weight:600; padding:8px 13px; border-radius:9px;
+    border:1px solid var(--line); background:var(--card); color:var(--ink); transition:.12s}
+  .btn:hover{border-color:var(--ink-faint)}
+  .btn.primary{background:var(--ocean); border-color:var(--ocean); color:#fff}
+  .btn.primary:hover{background:var(--ocean-dk)}
+  .btn.ghost{background:transparent}
+  .btn:disabled{opacity:.45; cursor:not-allowed}
+  .btn:disabled:hover{border-color:var(--line)}
+
+  section{margin-bottom:34px}
+  .shead{display:flex; align-items:baseline; gap:12px; margin-bottom:12px; flex-wrap:wrap}
+  .shead .n{font-family:"Fraunces",serif; font-size:13px; color:var(--gold); font-weight:600; letter-spacing:.04em}
+  .shead h2{font-family:"Fraunces",serif; font-weight:600; font-size:20px; margin:0; letter-spacing:-.01em}
+  .shead .sub{font-size:12.5px; color:var(--ink-faint)}
+  .rule{height:1px; background:var(--line); margin:0 0 16px}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow)}
+
+  /* timeline ribbon */
+  .ribbon{padding:16px 16px 12px; overflow-x:auto}
+  .ribbon-inner{min-width:760px}
+  .axis{position:relative; height:18px; margin:0 0 6px; border-bottom:1px dashed var(--line)}
+  .tick{position:absolute; transform:translateX(-50%); font-size:10.5px; color:var(--ink-faint); top:2px}
+  .lanes{position:relative}
+  .lane{position:relative; height:34px; margin-bottom:6px}
+  .block{position:absolute; top:0; height:30px; border-radius:7px; padding:3px 7px; overflow:hidden;
+    border:1px solid; font-size:11px; line-height:1.15}
+  .block .bt{font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .block .bi{font-size:9.5px; opacity:.8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .block.ok{background:var(--ok-bg); border-color:var(--ok-line); color:#19533a}
+  .block.tent{background:var(--tent-bg); border-color:var(--tent-line); color:#7a5414}
+  .block.bad{background:var(--bad-bg); border-color:var(--bad-line); color:#7d2c19}
+  .block.roam{background:repeating-linear-gradient(135deg,#eef3ee,#eef3ee 6px,#e4ece4 6px,#e4ece4 12px);
+    border-color:#cdddcf; color:#33523a; height:22px; top:4px}
+  .legend{display:flex; flex-wrap:wrap; gap:14px; font-size:11.5px; color:var(--ink-soft); margin-top:8px}
+  .legend i{width:11px;height:11px;border-radius:3px;display:inline-block;vertical-align:-1px;margin-right:5px;border:1px solid}
+  .legend .ok{background:var(--ok-bg);border-color:var(--ok-line)}
+  .legend .tent{background:var(--tent-bg);border-color:var(--tent-line)}
+  .legend .bad{background:var(--bad-bg);border-color:var(--bad-line)}
+
+  /* roster */
+  .roster-scroll{overflow-x:auto; border:1px solid var(--line); border-radius:14px; background:var(--card)}
+  table.roster{border-collapse:collapse; width:100%; min-width:720px}
+  table.roster th{font-size:10.5px; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-soft);
+    font-weight:600; text-align:left; padding:11px 12px; background:var(--card-2); border-bottom:1px solid var(--line)}
+  table.roster td{padding:9px 12px; border-bottom:1px solid var(--line-soft); vertical-align:middle}
+  table.roster tr:last-child td{border-bottom:none}
+  .nm{font-weight:600; font-size:13px; display:flex; align-items:center; gap:6px}
+  .rmx{border:none; background:transparent; color:var(--ink-faint); font-size:15px; padding:0 2px; cursor:pointer; line-height:1}
+  .rmx:hover{color:var(--bad)}
+  .rolesel, .timein{font-family:inherit; font-size:12.5px; padding:6px 8px; border:1px solid var(--line);
+    border-radius:8px; background:var(--card-2); color:var(--ink)}
+  .rolesel:focus,.timein:focus{outline:none; border-color:var(--ocean)}
+  .timein{width:118px}
+  .abar{position:relative; height:14px; min-width:200px; background:var(--card-2);
+    border:1px solid var(--line-soft); border-radius:7px; overflow:hidden}
+  .abar span{position:absolute; top:0; height:100%; background:var(--ok-bg); border-left:2px solid var(--ok); border-right:2px solid var(--ok)}
+  .abar.invalid span{background:var(--bad-bg); border-color:var(--bad)}
+  .rb{font-size:9.5px; font-weight:700; letter-spacing:.03em; padding:1px 5px; border-radius:5px; border:1px solid}
+  .rb.Executive{background:#e7eef0; border-color:#b9d2d6; color:var(--ocean-dk)}
+  .rb.Volunteer{background:#f4ead0; border-color:#e3c98a; color:#7a5414}
+
+  .addrow{display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; align-items:center}
+  .addrow input, .addrow select{font-family:inherit; font-size:13px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--card)}
+  .addrow input:focus, .addrow select:focus{outline:none; border-color:var(--ocean)}
+
+  .paste{margin-top:14px}
+  .paste summary{font-size:12.5px; color:var(--ocean-dk); font-weight:600; cursor:pointer; list-style:none}
+  .paste summary::-webkit-details-marker{display:none}
+  .paste summary::before{content:"+ "; color:var(--gold)}
+  .paste[open] summary::before{content:"– "}
+  .paste textarea{width:100%; margin-top:10px; min-height:96px; font-family:ui-monospace,Menlo,monospace; font-size:12px;
+    padding:10px; border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink); resize:vertical}
+  .paste textarea:focus{outline:none; border-color:var(--ocean)}
+  .paste .hint{font-size:11.5px; color:var(--ink-faint); margin-top:6px}
+  .paste .prow{display:flex; gap:8px; align-items:center; margin-top:10px}
+
+  /* session cards */
+  .sessions{display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px}
+  .sx{padding:14px; border-left:4px solid var(--ink-faint)}
+  .sx.ok{border-left-color:var(--ok)} .sx.tent{border-left-color:var(--tent)} .sx.bad{border-left-color:var(--bad)}
+  .sx .top{display:flex; justify-content:space-between; gap:8px; align-items:flex-start}
+  .sx h3{font-family:"Fraunces",serif; font-size:15px; margin:0 0 2px; font-weight:600; line-height:1.18}
+  .sx .tm{font-size:11.5px; color:var(--ink-faint)}
+  .snote{font-size:11px; color:var(--gold); margin-top:3px; font-style:italic}
+  .sx .cnt{font-size:11px; font-weight:600; padding:3px 8px; border-radius:999px; white-space:nowrap; border:1px solid}
+  .cnt.ok{background:var(--ok-bg); border-color:var(--ok-line); color:#19533a}
+  .cnt.tent{background:var(--tent-bg); border-color:var(--tent-line); color:#7a5414}
+  .cnt.bad{background:var(--bad-bg); border-color:var(--bad-line); color:#7d2c19}
+  .rbreak{font-size:10.5px; color:var(--ink-faint); margin:8px 0 0}
+  .chips{display:flex; flex-wrap:wrap; gap:6px; margin:9px 0; min-height:8px}
+  .chip{display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:500;
+    padding:4px 6px 4px 9px; border-radius:8px; background:var(--card-2); border:1px solid var(--line)}
+  .chip .sd{width:7px;height:7px;border-radius:50%}
+  .chip .sd.ok{background:var(--ok)} .chip .sd.tent{background:var(--tent)} .chip .sd.bad{background:var(--bad)}
+  .chip.warn{border-color:var(--bad-line); background:var(--bad-bg)}
+  .chip .x{border:none;background:transparent;color:var(--ink-faint);cursor:pointer;font-size:14px;line-height:1;padding:0 1px}
+  .chip .x:hover{color:var(--bad)}
+  .assign-sel{width:100%; font-family:inherit; font-size:12.5px; padding:7px 8px; border:1px solid var(--line);
+    border-radius:8px; background:var(--card-2); color:var(--ink-soft)}
+  .assign-sel:focus{outline:none;border-color:var(--ocean)}
+  .target{display:flex; align-items:center; gap:8px; margin-top:10px; font-size:11.5px; color:var(--ink-faint)}
+  .target .stp{width:24px; height:24px; border-radius:7px; border:1px solid var(--line); background:var(--card-2);
+    color:var(--ink); font-size:15px; line-height:1; display:inline-flex; align-items:center; justify-content:center}
+  .target .stp:hover{border-color:var(--ocean); color:var(--ocean)}
+  .target .needval{font-size:13px; font-weight:600; color:var(--ink); min-width:16px; text-align:center}
+
+  /* issues */
+  .issue{display:flex; gap:10px; align-items:flex-start; padding:10px 12px; border-radius:10px; margin-bottom:8px; font-size:13px; background:var(--card)}
+  .issue .ic{flex:none; width:20px; text-align:center; font-weight:700}
+  .issue.bad{background:var(--bad-bg); color:#7d2c19} .issue.bad .ic{color:var(--bad)}
+  .issue.tent{background:var(--tent-bg); color:#6e4c12} .issue.tent .ic{color:var(--tent)}
+  .issue.ok{background:var(--ok-bg); color:#19533a} .issue.ok .ic{color:var(--ok)}
+  .issue b{font-weight:600}
+
+  .foot-note{font-size:12px; color:var(--ink-faint); margin-top:18px; line-height:1.6; max-width:780px}
+  .foot-note code{background:var(--card-2); border:1px solid var(--line); padding:1px 5px; border-radius:5px; font-size:11.5px}
+  @media (max-width:560px){ .wrap{padding:18px 12px 70px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">Bermuda Journal of Academic Research</div>
+    <h1>Inaugural Conference — Personnel &amp; Session Tracker</h1>
+    <div class="meta">
+      <span><b>When</b> Friday 24 July 2026 · 2:00–7:00 PM</span>
+      <span><b>Where</b> Hamilton, Bermuda</span>
+      <span><b>Day window tracked</b> 1:00 PM (set-up) → 7:00 PM (tidying)</span>
+    </div>
+  </header>
+
+  <div class="bar">
+    <span class="mode" id="mode"><span class="dot"></span><span id="modeText">Local mode — not connected</span></span>
+    <span class="spacer"></span>
+    <button class="btn ghost" id="btnLoad" disabled title="Connect a deployed Apps Script to enable">↧ Load roster from Sheet</button>
+    <button class="btn ghost" id="btnPush" disabled title="Connect a deployed Apps Script to enable">↥ Push assignments to Calendar</button>
+    <button class="btn" id="btnExport">Export CSV</button>
+    <button class="btn primary" id="btnSave" disabled title="Connect a deployed Apps Script to enable">Save</button>
+  </div>
+
+  <!-- 1. timeline ribbon -->
+  <section>
+    <div class="shead"><span class="n">01</span><h2>The day at a glance</h2>
+      <span class="sub">staffing status across the run-of-show</span></div>
+    <div class="rule"></div>
+    <div class="card ribbon">
+      <div class="ribbon-inner">
+        <div class="axis" id="axis"></div>
+        <div class="lanes" id="lanes"></div>
+      </div>
+      <div class="legend">
+        <span><i class="ok"></i>Fully staffed &amp; clear</span>
+        <span><i class="tent"></i>Partial availability</span>
+        <span><i class="bad"></i>Understaffed or a conflict</span>
+        <span style="opacity:.75">▨ roaming role</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. roster -->
+  <section>
+    <div class="shead"><span class="n">02</span><h2>Roster &amp; availability</h2>
+      <span class="sub">name · role · time in · time out — the window each person is on site</span></div>
+    <div class="rule"></div>
+    <div class="roster-scroll">
+      <table class="roster" id="roster"></table>
+    </div>
+    <div class="addrow">
+      <input id="newName" placeholder="Name" />
+      <select id="newRole"><option value="Executive">Executive</option><option value="Volunteer">Volunteer</option></select>
+      <label style="font-size:12px;color:var(--ink-faint)">in <input type="time" id="newIn" class="timein" value="14:00"></label>
+      <label style="font-size:12px;color:var(--ink-faint)">out <input type="time" id="newOut" class="timein" value="19:00"></label>
+      <input id="newEmail" placeholder="email (optional, for invites)" />
+      <button class="btn" id="btnAdd">Add person</button>
+    </div>
+
+    <details class="paste">
+      <summary>Paste from your availability spreadsheet</summary>
+      <textarea id="pasteBox" placeholder="Name, Role, Time in, Time out&#10;Ywione, Executive, 1:00 PM, 7:00 PM&#10;Sofia Smith, Volunteer, 2:00 PM, 5:00 PM"></textarea>
+      <div class="hint">One person per line, four columns: name, role (executive / volunteer), time in, time out. Tabs (a direct spreadsheet copy) or commas both work. A header row is detected and skipped. Times accept 1:15 PM, 13:15, or 2pm.</div>
+      <div class="prow">
+        <button class="btn" id="btnPaste">Load pasted rows</button>
+        <span id="pasteMsg" style="font-size:12px;color:var(--ink-faint)"></span>
+      </div>
+    </details>
+  </section>
+
+  <!-- 3. sessions -->
+  <section>
+    <div class="shead"><span class="n">03</span><h2>Assign people to sessions</h2>
+      <span class="sub">a dot shows availability · adjust who's on each duty and the target headcount</span></div>
+    <div class="rule"></div>
+    <div class="sessions" id="sessions"></div>
+  </section>
+
+  <!-- 4. issues -->
+  <section>
+    <div class="shead"><span class="n">04</span><h2>Gaps &amp; conflicts</h2>
+      <span class="sub">resolve these before the day</span></div>
+    <div class="rule"></div>
+    <div id="issues"></div>
+  </section>
+
+  <p class="foot-note">
+    Availability is one window per person — the <b>time in</b> and <b>time out</b> from your spreadsheet. Full coverage of a session shows green, partial overlap shows amber, no overlap shows red. To share this across the team and merge with Google Calendar, deploy the companion <code>Code.gs</code> and paste its <code>/exec</code> URL into <code>CONFIG.scriptUrl</code>: <b>Save</b> writes the roster and assignments to your Sheet, <b>Load roster from Sheet</b> pulls the four columns back in, and <b>Push</b> creates a calendar invite for every assignment.
+  </p>
+</div>
+
+<script>
+const CONFIG = { scriptUrl: "" };
+
+const DAY_START = 780;   // 1:00 PM
+const DAY_END   = 1140;  // 7:00 PM
+
+let TEAM = [
+  { id:"p1", name:"Ywione",            role:"Executive", in:780, out:1140, email:"" },
+  { id:"p2", name:"Kyaida Lanthier",   role:"Executive", in:780, out:1140, email:"" },
+  { id:"p3", name:"Sofia Smith",       role:"Volunteer", in:780, out:1140, email:"" },
+  { id:"p4", name:"Darien Williams",   role:"Volunteer", in:780, out:1140, email:"" },
+  { id:"p5", name:"Olivia Washington", role:"Volunteer", in:780, out:1140, email:"" },
+  { id:"p6", name:"Lara Backeberg",    role:"Volunteer", in:780, out:1140, email:"" },
+  { id:"p7", name:"Ayana Lomas",       role:"Volunteer", in:780, out:1140, email:"" },
+];
+
+let SESSIONS = [
+  { id:"setup",    name:"Set up",                          start:795,  end:840,  need:4, exclusive:true },
+  { id:"checkin",  name:"Attendee check-in",               start:825,  end:870,  need:2, exclusive:true },
+  { id:"welcome",  name:"Welcome + keynote (Dr. Eve De Rosa)", start:840, end:920, need:2, exclusive:true },
+  { id:"bk_berm",  name:"Breakout — Bermudez",             start:920,  end:1020, need:2, exclusive:true },
+  { id:"bk_some",  name:"Breakout — Somers",               start:920,  end:1020, need:2, exclusive:true },
+  { id:"bk_drake", name:"Breakout — Drake",                start:920,  end:1020, need:2, exclusive:true },
+  { id:"panel",    name:"Panel discussion (antisocial behaviour in SIDS)", start:1020, end:1080, need:2, exclusive:true, note:"Photography covered by a hired photographer." },
+  { id:"refresh",  name:"Refreshments + networking",       start:1080, end:1125, need:2, exclusive:true },
+  { id:"tidying",  name:"Tidying",                         start:1125, end:1140, need:3, exclusive:true },
+  { id:"photo1",   name:"Photography — first half",        start:840,  end:1020, need:1, exclusive:false },
+  { id:"photo2",   name:"Photography — after panel",       start:1080, end:1140, need:1, exclusive:false },
+];
+
+let assign = {};
+SESSIONS.forEach(s => assign[s.id] = []);
+
+/* helpers */
+const $ = sel => document.querySelector(sel);
+function lbl(m){ let h=Math.floor(m/60), mm=m%60, hh=h%12; if(hh===0)hh=12; return hh+":"+String(mm).padStart(2,"0"); }
+function lblAP(m){ return lbl(m)+(Math.floor(m/60)>=12?" PM":" AM"); }
+function minToHHMM(m){ return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0"); }
+function hhmmToMin(s){ const p=s.split(":"); return (+p[0])*60+(+p[1]); }
+function parseTime(str){
+  if(str==null) return null;
+  str=String(str).trim().toLowerCase().replace(/\./g,"");
+  const m=str.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/);
+  if(!m) return null;
+  let h=+m[1], min=m[2]?+m[2]:0, ap=m[3];
+  if(ap==="pm"&&h<12) h+=12;
+  if(ap==="am"&&h===12) h=0;
+  return h*60+min;
+}
+function person(id){ return TEAM.find(p=>p.id===id); }
+function initials(name){ return name.trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase(); }
+function roleAbbr(r){ return r==="Executive"?"exec":"vol"; }
+
+/* availability from a single in/out window */
+function availForSession(pid, s){
+  const p=person(pid); if(!p) return "bad";
+  if(p.out<=s.start || p.in>=s.end) return "bad";      // no overlap
+  if(p.in<=s.start && p.out>=s.end) return "ok";       // fully covers
+  return "tent";                                        // partial
+}
+function doubleBookings(pid){
+  const mine = SESSIONS.filter(s=>s.exclusive && assign[s.id].includes(pid));
+  const clashes=[];
+  for(let i=0;i<mine.length;i++) for(let j=i+1;j<mine.length;j++){
+    const a=mine[i], b=mine[j];
+    if(a.start < b.end && b.start < a.end) clashes.push([a,b]);
+  }
+  return clashes;
+}
+function sessionStatus(s){
+  const list=assign[s.id];
+  if(list.length < s.need) return "bad";
+  let worst="ok";
+  for(const pid of list){ const f=availForSession(pid,s); if(f==="bad") return "bad"; if(f==="tent") worst="tent"; }
+  return worst;
+}
+function roleCounts(sid){
+  let ex=0, vol=0;
+  assign[sid].forEach(pid=>{ const p=person(pid); if(!p)return; p.role==="Executive"?ex++:vol++; });
+  return {ex, vol};
+}
+
+/* ---------- roster ---------- */
+function renderRoster(){
+  const span=DAY_END-DAY_START;
+  const pct=m=>((Math.max(DAY_START,Math.min(DAY_END,m))-DAY_START)/span*100);
+  let h="<thead><tr><th>Name</th><th>Role</th><th>Time in</th><th>Time out</th><th>On site (1–7 PM)</th></tr></thead><tbody>";
+  TEAM.forEach(p=>{
+    const valid = p.out>p.in;
+    h+=`<tr>
+      <td><div class="nm">${p.name}<button class="rmx" data-remove="${p.id}" title="Remove">×</button></div></td>
+      <td><select class="rolesel" data-p="${p.id}" data-f="role">
+        <option value="Executive"${p.role==="Executive"?" selected":""}>Executive</option>
+        <option value="Volunteer"${p.role==="Volunteer"?" selected":""}>Volunteer</option></select></td>
+      <td><input type="time" class="timein" data-p="${p.id}" data-f="in" value="${minToHHMM(p.in)}"></td>
+      <td><input type="time" class="timein" data-p="${p.id}" data-f="out" value="${minToHHMM(p.out)}"></td>
+      <td><div class="abar ${valid?"":"invalid"}"><span style="left:${pct(p.in)}%;width:${Math.max(0,pct(p.out)-pct(p.in))}%"></span></div></td>
+    </tr>`;
+  });
+  h+="</tbody>";
+  $("#roster").innerHTML=h;
+}
+
+/* field edits + remove (delegation) */
+document.addEventListener("change", e=>{
+  const f=e.target.closest("[data-f]"); if(!f) return;
+  const p=person(f.dataset.p); if(!p) return;
+  const field=f.dataset.f;
+  if(field==="role") p.role=f.value;
+  else p[field]=hhmmToMin(f.value);
+  renderAll();
+});
+document.addEventListener("click", e=>{
+  const rm=e.target.closest("[data-remove]");
+  const rmA=e.target.closest("[data-unassign]");
+  if(rm){ const id=rm.dataset.remove; TEAM=TEAM.filter(p=>p.id!==id);
+    SESSIONS.forEach(s=>assign[s.id]=assign[s.id].filter(x=>x!==id)); renderAll(); }
+  if(rmA){ const [sid,pid]=rmA.dataset.unassign.split("|"); assign[sid]=assign[sid].filter(x=>x!==pid); renderAll(); }
+});
+
+/* add person */
+$("#btnAdd").addEventListener("click", ()=>{
+  const nm=$("#newName").value.trim(); if(!nm) return;
+  TEAM.push({ id:"p"+Date.now(), name:nm, role:$("#newRole").value,
+    in:hhmmToMin($("#newIn").value), out:hhmmToMin($("#newOut").value), email:$("#newEmail").value.trim() });
+  $("#newName").value=$("#newEmail").value="";
+  renderAll();
+});
+
+/* paste import — also reused by Sheet load */
+function applyRoster(rows){
+  if(!rows.length) return 0;
+  let start=0;
+  const first=rows[0].map(c=>String(c).toLowerCase());
+  const hasHeader = first.some(c=>/name|role|time|in|out/.test(c));
+  let idx={name:0, role:1, in:2, out:3, email:4};
+  if(hasHeader){
+    start=1;
+    first.forEach((c,i)=>{
+      if(/name/.test(c)) idx.name=i;
+      else if(/role/.test(c)) idx.role=i;
+      else if(/in/.test(c)) idx.in=i;
+      else if(/out/.test(c)) idx.out=i;
+      else if(/mail/.test(c)) idx.email=i;
+    });
+  }
+  const next=[];
+  for(let r=start;r<rows.length;r++){
+    const c=rows[r]; if(!c || !String(c[idx.name]||"").trim()) continue;
+    const roleRaw=String(c[idx.role]||"").toLowerCase();
+    const tin=parseTime(c[idx.in]), tout=parseTime(c[idx.out]);
+    next.push({
+      id:"p"+Date.now()+"_"+r,
+      name:String(c[idx.name]).trim(),
+      role: roleRaw.startsWith("exec") ? "Executive" : "Volunteer",
+      in: tin==null?DAY_START:tin,
+      out: tout==null?DAY_END:tout,
+      email: idx.email<c.length ? String(c[idx.email]||"").trim() : ""
+    });
+  }
+  if(next.length){ TEAM=next; SESSIONS.forEach(s=>assign[s.id]=assign[s.id].filter(x=>person(x))); }
+  return next.length;
+}
+function splitRows(text){
+  return text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean)
+    .map(l=> l.includes("\t") ? l.split("\t") : l.split(","));
+}
+$("#btnPaste").addEventListener("click", ()=>{
+  const n=applyRoster(splitRows($("#pasteBox").value));
+  $("#pasteMsg").textContent = n ? `Loaded ${n} ${n===1?"person":"people"}.` : "Nothing recognised — check the columns.";
+  if(n) renderAll();
+});
+
+/* ---------- sessions ---------- */
+function renderSessions(){
+  const wrap=$("#sessions"); let h="";
+  SESSIONS.forEach(s=>{
+    const st=sessionStatus(s);
+    const assigned=assign[s.id];
+    const cntCls = assigned.length<s.need ? "bad" : st;
+    const cntTxt = assigned.length<s.need ? `${assigned.length}/${s.need} — need ${s.need-assigned.length} more` : `${assigned.length}/${s.need} ✓`;
+    const rc=roleCounts(s.id);
+    h+=`<div class="card sx ${st}">
+      <div class="top">
+        <div><h3>${s.name}</h3><div class="tm">${lblAP(s.start)} – ${lblAP(s.end)}${s.exclusive?"":" · roaming"}</div>${s.note?`<div class="snote">${s.note}</div>`:""}</div>
+        <span class="cnt ${cntCls}">${cntTxt}</span>
+      </div>
+      <div class="chips">`;
+    assigned.forEach(pid=>{
+      const p=person(pid); if(!p) return;
+      const f=availForSession(pid,s);
+      const dbl=s.exclusive && doubleBookings(pid).some(([a,b])=>a.id===s.id||b.id===s.id);
+      h+=`<span class="chip ${f==="bad"||dbl?"warn":""}" title="${f==="bad"?"Not available for this window":dbl?"Double-booked":f==="tent"?"Available for part of it":"Available"}">
+        <span class="sd ${dbl?"bad":f}"></span>${p.name}<span class="rb ${p.role}">${p.role==="Executive"?"E":"V"}</span>
+        <button class="x" data-unassign="${s.id}|${pid}">×</button></span>`;
+    });
+    h+=`</div>
+      <div class="rbreak">${rc.ex} exec · ${rc.vol} vol assigned</div>
+      <select class="assign-sel" data-add="${s.id}">
+        <option value="">+ Assign a team member…</option>`;
+    TEAM.filter(p=>!assigned.includes(p.id)).forEach(p=>{
+      const f=availForSession(p.id,s);
+      const tag = f==="bad" ? " — unavailable" : f==="tent" ? " — partial" : "";
+      h+=`<option value="${p.id}">${p.name} · ${roleAbbr(p.role)}${tag}</option>`;
+    });
+    h+=`</select>
+      <div class="target">Target headcount
+        <button class="stp" data-need="${s.id}|-1" title="Fewer">−</button>
+        <span class="needval">${s.need}</span>
+        <button class="stp" data-need="${s.id}|1" title="More">+</button>
+      </div></div>`;
+  });
+  wrap.innerHTML=h;
+  wrap.querySelectorAll("[data-add]").forEach(sel=>sel.addEventListener("change", e=>{
+    const sid=e.target.dataset.add, pid=e.target.value; if(!pid) return;
+    if(!assign[sid].includes(pid)) assign[sid].push(pid);
+    renderAll();
+  }));
+  wrap.querySelectorAll("[data-need]").forEach(b=>b.addEventListener("click", e=>{
+    const [sid,delta]=e.currentTarget.dataset.need.split("|");
+    const s=SESSIONS.find(x=>x.id===sid); if(!s) return;
+    s.need=Math.max(0, s.need+(+delta)); renderAll();
+  }));
+}
+
+/* ---------- timeline ribbon ---------- */
+function renderRibbon(){
+  const span=DAY_END-DAY_START;
+  const pct=m=>((m-DAY_START)/span*100);
+  let ax=""; for(let m=Math.ceil(DAY_START/60)*60; m<=DAY_END; m+=60) ax+=`<span class="tick" style="left:${pct(m)}%">${lbl(m)}</span>`;
+  $("#axis").innerHTML=ax;
+
+  const packLanes = list => {
+    const sorted=list.slice().sort((a,b)=>a.start-b.start), lanes=[];
+    sorted.forEach(s=>{ let placed=false;
+      for(const lane of lanes){ if(lane[lane.length-1].end<=s.start){ lane.push(s); placed=true; break; } }
+      if(!placed) lanes.push([s]); });
+    return lanes;
+  };
+  const exLanes=packLanes(SESSIONS.filter(s=>s.exclusive));
+  const roamLanes=packLanes(SESSIONS.filter(s=>!s.exclusive));
+
+  let html="";
+  exLanes.forEach(lane=>{
+    html+=`<div class="lane">`;
+    lane.forEach(s=>{
+      const st=sessionStatus(s);
+      const ini=assign[s.id].map(pid=>initials(person(pid)?.name||"")).join(" ");
+      html+=`<div class="block ${st}" style="left:${pct(s.start)}%;width:${pct(s.end)-pct(s.start)}%"
+        title="${s.name} · ${lblAP(s.start)}–${lblAP(s.end)}${s.note?" · "+s.note:""}">
+        <div class="bt">${s.name}</div><div class="bi">${ini||"—"}</div></div>`;
+    });
+    html+=`</div>`;
+  });
+  roamLanes.forEach(lane=>{
+    html+=`<div class="lane">`;
+    lane.forEach(s=>{
+      const ini=assign[s.id].map(pid=>initials(person(pid)?.name||"")).join(" ");
+      html+=`<div class="block roam" style="left:${pct(s.start)}%;width:${pct(s.end)-pct(s.start)}%"
+        title="${s.name} · ${lblAP(s.start)}–${lblAP(s.end)}"><div class="bt">${s.name} ${ini?"· "+ini:""}</div></div>`;
+    });
+    html+=`</div>`;
+  });
+  $("#lanes").innerHTML=html;
+}
+
+/* ---------- issues ---------- */
+function renderIssues(){
+  const out=[];
+  SESSIONS.forEach(s=>{ const n=assign[s.id].length;
+    if(n<s.need) out.push({k:"bad", t:`<b>${s.name}</b> is understaffed — ${n}/${s.need} assigned (${lblAP(s.start)}–${lblAP(s.end)}).`}); });
+  SESSIONS.forEach(s=>{ assign[s.id].forEach(pid=>{
+    if(availForSession(pid,s)==="bad") out.push({k:"bad", t:`<b>${person(pid)?.name}</b> is assigned to <b>${s.name}</b> but isn't on site then.`}); }); });
+  const seen=new Set();
+  TEAM.forEach(p=>{ doubleBookings(p.id).forEach(([a,b])=>{
+    const key=[p.id,a.id,b.id].sort().join("|"); if(seen.has(key))return; seen.add(key);
+    out.push({k:"bad", t:`<b>${p.name}</b> is double-booked: <b>${a.name}</b> overlaps <b>${b.name}</b>.`}); }); });
+  SESSIONS.forEach(s=>{ assign[s.id].forEach(pid=>{
+    if(availForSession(pid,s)==="tent") out.push({k:"tent", t:`<b>${person(pid)?.name}</b> is on site for only part of <b>${s.name}</b> — confirm.`}); }); });
+
+  const box=$("#issues");
+  if(!out.length){ box.innerHTML=`<div class="issue ok"><span class="ic">✓</span><div>Every session is staffed to target and clear of conflicts. You're ready.</div></div>`; return; }
+  const order={bad:0,tent:1};
+  out.sort((a,b)=>order[a.k]-order[b.k]);
+  box.innerHTML=out.map(o=>`<div class="issue ${o.k}"><span class="ic">${o.k==="bad"?"!":"~"}</span><div>${o.t}</div></div>`).join("");
+}
+
+/* ---------- orchestration ---------- */
+function refreshDerived(){ renderSessions(); renderRibbon(); renderIssues(); }
+function renderAll(){ renderRoster(); refreshDerived(); }
+
+/* export CSV */
+$("#btnExport").addEventListener("click", ()=>{
+  let rows=[["Name","Role","Time in","Time out","Email"]];
+  TEAM.forEach(p=>rows.push([p.name, p.role, lblAP(p.in), lblAP(p.out), p.email]));
+  rows.push([]); rows.push(["Session","Start","End","Need","Assigned"]);
+  SESSIONS.forEach(s=>rows.push([s.name, lblAP(s.start), lblAP(s.end), s.need, assign[s.id].map(pid=>person(pid)?.name).join("; ")]));
+  const csv=rows.map(r=>r.map(c=>`"${String(c??"").replace(/"/g,'""')}"`).join(",")).join("\n");
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+  a.download="bjar-conference-staffing.csv"; a.click();
+});
+
+/* ---------- backend wiring ---------- */
+function setMode(){
+  const live=!!CONFIG.scriptUrl;
+  $("#mode").classList.toggle("live",live);
+  $("#modeText").textContent = live ? "Connected to Sheet" : "Local mode — not connected";
+  ["btnSave","btnLoad","btnPush"].forEach(id=>$("#"+id).disabled=!live);
+}
+async function api(payload){
+  const r=await fetch(CONFIG.scriptUrl,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(payload)});
+  return r.json();
+}
+function flash(btn,txt){ const o=btn.textContent; btn.textContent=txt; setTimeout(()=>btn.textContent=o,1600); }
+$("#btnSave").addEventListener("click", async ()=>{
+  try{ await api({action:"save", team:TEAM.map(p=>({...p, inLabel:lblAP(p.in), outLabel:lblAP(p.out)})), assign, sessions:SESSIONS});
+    flash($("#btnSave"),"Saved ✓"); }catch(e){ alert("Save failed — check the script URL and deployment."); }
+});
+$("#btnLoad").addEventListener("click", async ()=>{
+  try{ const res=await api({action:"load"});
+    const n=applyRoster(res.team||[]);
+    if(res.assign) assign=res.assign;
+    renderAll(); flash($("#btnLoad"), n?`Loaded ${n} ✓`:"Sheet empty");
+  }catch(e){ alert("Load failed — check the script URL and deployment."); }
+});
+$("#btnPush").addEventListener("click", async ()=>{
+  if(!confirm("Create calendar invites for every current assignment?")) return;
+  try{
+    const items=[];
+    SESSIONS.forEach(s=>assign[s.id].forEach(pid=>{ const p=person(pid);
+      if(p&&p.email) items.push({sessionId:s.id, title:s.name, start:s.start, end:s.end, email:p.email}); }));
+    const res=await api({action:"pushAssignments", date:"2026-07-24", items});
+    flash($("#btnPush"), `Pushed ${res.created||0} ✓`);
+  }catch(e){ alert("Push failed — check the script deployment and calendar permissions."); }
+});
+
+setMode();
+renderAll();
+</script>
+</body>
+</html>
