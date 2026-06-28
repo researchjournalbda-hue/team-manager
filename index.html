@@ -294,11 +294,13 @@ function hhmmToMin(s){ const p=s.split(":"); return (+p[0])*60+(+p[1]); }
 function parseTime(str){
   if(str==null) return null;
   str=String(str).trim().toLowerCase().replace(/\./g,"");
-  const m=str.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/);
+  if(!str) return null;
+  const m=str.match(/^(\d{1,2})(?::(\d{2}))?(?::\d{2})?\s*([ap]m)?$/);
   if(!m) return null;
   let h=+m[1], min=m[2]?+m[2]:0, ap=m[3];
   if(ap==="pm"&&h<12) h+=12;
   if(ap==="am"&&h===12) h=0;
+  if(h>23||min>59) return null;
   return h*60+min;
 }
 function person(id){ return TEAM.find(p=>p.id===id); }
