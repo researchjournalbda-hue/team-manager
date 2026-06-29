@@ -444,16 +444,17 @@ $("#btnPaste").addEventListener("click", ()=>{
 /* ---------- run sheet -> sessions ---------- */
 function applyRunSheet(rows){
   if(!rows||!rows.length){ SESSIONS=[]; assign={}; return 0; }
-  const head=rows[0].map(c=>String(c).toLowerCase());
+  let hr=-1;
+  for(let i=0;i<Math.min(rows.length,12);i++){ if(rows[i].map(c=>String(c).trim().toLowerCase()).includes("timing")){ hr=i; break; } }
+  const head=(hr<0?rows[0]:rows[hr]).map(c=>String(c).toLowerCase());
   const find=(re,def)=>{ const i=head.findIndex(h=>re.test(h)); return i<0?def:i; };
   const ci={ timing:find(/timing|time/,0), room:find(/room|venue|location/,1),
     desc:find(/desc|activit|item|session/,2), resp:find(/responsib|duties|task/,3),
     team:find(/team member|assigned|personnel|who/,4), status:find(/status|complete|done/,5) };
-  const headerPresent=head.some(h=>/timing|time|room|desc/.test(h));
   const nameToId={}; TEAM.forEach(p=>nameToId[p.name.trim().toLowerCase()]=p.id);
   const sessions=[], na={};
   let blkIdx=-1, blkLabel="";
-  for(let r=headerPresent?1:0; r<rows.length; r++){
+  for(let r=(hr<0?0:hr+1); r<rows.length; r++){
     const c=rows[r]; if(!c) continue;
     const rawT=String(c[ci.timing]||"").trim();
     const desc=String(c[ci.desc]||"").trim();
