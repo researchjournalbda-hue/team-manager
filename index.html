@@ -445,10 +445,11 @@ $("#btnPaste").addEventListener("click", ()=>{
 function applyRunSheet(rows){
   if(!rows||!rows.length){ SESSIONS=[]; assign={}; return 0; }
   let hr=-1;
-  for(let i=0;i<Math.min(rows.length,12);i++){ if(rows[i].map(c=>String(c).trim().toLowerCase()).includes("timing")){ hr=i; break; } }
+  for(let i=0;i<Math.min(rows.length,12);i++){ const low=rows[i].map(c=>String(c).trim().toLowerCase());
+    if(low.includes("timing")||low.includes("start")){ hr=i; break; } }
   const head=(hr<0?rows[0]:rows[hr]).map(c=>String(c).toLowerCase());
   const find=(re,def)=>{ const i=head.findIndex(h=>re.test(h)); return i<0?def:i; };
-  const ci={ timing:find(/timing|time/,0), room:find(/room|venue|location/,1),
+  const ci={ start:find(/start|timing/,0), end:find(/end|finish/,-1), room:find(/room|venue|location/,1),
     desc:find(/desc|activit|item|session/,2), resp:find(/responsib|duties|task/,3),
     team:find(/team member|assigned|personnel|who/,4), status:find(/status|complete|done/,5) };
   const nameToId={}; TEAM.forEach(p=>nameToId[p.name.trim().toLowerCase()]=p.id);
@@ -456,10 +457,14 @@ function applyRunSheet(rows){
   let blkIdx=-1, blkLabel="";
   for(let r=(hr<0?0:hr+1); r<rows.length; r++){
     const c=rows[r]; if(!c) continue;
-    const rawT=String(c[ci.timing]||"").trim();
+    const sc=String(c[ci.start]||"").trim();
     const desc=String(c[ci.desc]||"").trim();
-    if(!desc){ if(rawT){ blkIdx++; blkLabel=rawT; } continue; }   // divider row -> open a new time block
-    const tm=parseTiming(rawT); if(!tm) continue;
+    if(!desc){ if(sc){ blkIdx++; blkLabel=sc; } continue; }   // divider row -> open a new time block
+    let tm=null;
+    const ec=ci.end>=0?String(c[ci.end]||"").trim():"";
+    if(ec){ const a=parseTime(sc), b=parseTime(ec); if(a!=null&&b!=null&&b>a) tm={start:a,end:b}; }
+    if(!tm) tm=parseTiming(sc);          // single time, or a "start - end" range in one cell
+    if(!tm) continue;
     const id="r"+(r+1);
     sessions.push({ id, row:r+1, start:tm.start, end:tm.end,
       room:String(c[ci.room]||"").trim(), description:desc,
@@ -667,9 +672,9 @@ function renderAll(){ renderRoster(); refreshDerived(); }
 $("#btnExport").addEventListener("click", ()=>{
   let rows=[["Name","Role","Time in","Time out","Email"]];
   TEAM.forEach(p=>rows.push([p.name, p.role, lblAP(p.in), lblAP(p.out), p.email]));
-  rows.push([]); rows.push(["Timing","Room","Description","Responsibilities","Team Member","Status"]);
+  rows.push([]); rows.push(["Start","End","Room","Description","Responsibilities","Team Member","Status"]);
   SESSIONS.slice().sort((a,b)=>a.start-b.start).forEach(s=>rows.push([
-    `${lblAP(s.start)} – ${lblAP(s.end)}`, s.room, s.description, s.responsibilities,
+    lblAP(s.start), lblAP(s.end), s.room, s.description, s.responsibilities,
     (assign[s.id]||[]).map(pid=>person(pid)?.name).filter(Boolean).join("; "), isDone(s.status)?"Complete":"" ]));
   const csv=rows.map(r=>r.map(c=>`"${String(c??"").replace(/"/g,'""')}"`).join(",")).join("\n");
   const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
