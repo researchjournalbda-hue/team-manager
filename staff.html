@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BJAR Conference — My Tasks</title>
+<style>
+  :root{
+    --paper:#faf7f1; --card:#fffdf8; --ink:#2b2b2b; --ink-soft:#5d5750; --ink-faint:#938b80;
+    --line:#e7e0d4; --line-soft:#f0ebe1; --ocean:#1f6f78; --ocean-dk:#185a62; --gold:#c98a3a;
+    --ok:#2f8f5b; --ok-bg:#eaf5ee; --ok-line:#bfe0cb; --warn:#c2410c;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0}
+  body{background:var(--paper); color:var(--ink); font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    line-height:1.5; padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+  .wrap{max-width:560px; margin:0 auto; padding:18px 16px 60px}
+  header{padding:6px 2px 16px}
+  .kicker{font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--gold); font-weight:700}
+  h1{font-family:"Fraunces",Georgia,serif; font-weight:600; font-size:24px; margin:3px 0 2px}
+  .date{font-size:13px; color:var(--ink-faint)}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:16px}
+
+  /* name picker */
+  .pick h2{font-family:"Fraunces",Georgia,serif; font-weight:600; font-size:19px; margin:8px 2px 12px}
+  .search{width:100%; font-size:16px; font-family:inherit; padding:13px 14px; border:1px solid var(--line);
+    border-radius:12px; background:var(--card); color:var(--ink); margin-bottom:12px}
+  .search:focus{outline:none; border-color:var(--ocean)}
+  .names{display:flex; flex-direction:column; gap:9px}
+  .name{display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; text-align:left;
+    font-family:inherit; font-size:16px; font-weight:600; color:var(--ink); background:var(--card);
+    border:1px solid var(--line); border-radius:13px; padding:15px 16px; cursor:pointer}
+  .name:active{background:#f5f0e7}
+  .name .role{font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-faint)}
+  .name .role.Executive{color:var(--ocean-dk)}
+
+  /* tasks */
+  .hello{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin:4px 2px 14px}
+  .hello .who{font-family:"Fraunces",Georgia,serif; font-size:20px; font-weight:600}
+  .hello .shift{font-size:12.5px; color:var(--ink-faint); margin-top:2px}
+  .switch{flex:none; font-size:12.5px; font-weight:600; color:var(--ocean); background:none; border:none; cursor:pointer; padding:4px 2px}
+  .prog{display:flex; align-items:center; gap:11px; margin:0 2px 18px}
+  .pbar{flex:1; height:10px; border-radius:99px; background:var(--line-soft); border:1px solid var(--line); overflow:hidden}
+  .pbar i{display:block; height:100%; width:0; background:var(--ok); border-radius:99px; transition:width .3s}
+  .pcount{font-size:12.5px; font-weight:700; color:var(--ink-soft); white-space:nowrap}
+
+  .blk{font-family:"Fraunces",Georgia,serif; font-size:13px; font-weight:600; color:var(--ink-soft);
+    letter-spacing:.01em; margin:20px 4px 9px; padding-bottom:5px; border-bottom:1px solid var(--line-soft)}
+  .blk:first-of-type{margin-top:4px}
+
+  .task{display:flex; gap:13px; align-items:flex-start; padding:15px 15px; margin-bottom:10px; cursor:pointer}
+  .task .box{flex:none; width:26px; height:26px; border-radius:8px; border:2px solid var(--line);
+    background:#fff; display:flex; align-items:center; justify-content:center; margin-top:1px; transition:.15s}
+  .task .box svg{width:15px; height:15px; stroke:#fff; stroke-width:3.5; fill:none; opacity:0; transition:.15s}
+  .task .body{flex:1; min-width:0}
+  .task .time{font-size:12.5px; font-weight:700; color:var(--ocean-dk); font-variant-numeric:tabular-nums}
+  .task .desc{font-size:16px; font-weight:600; margin:1px 0 0}
+  .task .room{display:inline-block; font-size:11px; font-weight:600; color:var(--ink-soft);
+    border:1px solid var(--line); border-radius:6px; padding:1px 7px; margin-top:6px}
+  .task .resp{font-size:13.5px; color:var(--ink-soft); margin-top:7px}
+  .task .with{font-size:12px; color:var(--ink-faint); margin-top:6px}
+  .task.done{opacity:.62}
+  .task.done .box{background:var(--ok); border-color:var(--ok)}
+  .task.done .box svg{opacity:1}
+  .task.done .desc{text-decoration:line-through; text-decoration-color:var(--ink-faint)}
+
+  .note{text-align:center; color:var(--ink-faint); font-size:14px; padding:34px 18px; line-height:1.6}
+  .foot{display:flex; align-items:center; justify-content:space-between; margin-top:22px; padding-top:14px; border-top:1px solid var(--line-soft)}
+  .refresh{font-family:inherit; font-size:13px; font-weight:600; color:var(--ocean); background:none; border:1px solid var(--line); border-radius:10px; padding:9px 14px; cursor:pointer}
+  .stamp{font-size:11.5px; color:var(--ink-faint)}
+  .hide{display:none}
+  .toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:#3a352f; color:#fff;
+    font-size:13.5px; padding:11px 16px; border-radius:11px; box-shadow:0 8px 24px rgba(0,0,0,.18); z-index:9; max-width:90%}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">BJAR Inaugural Conference</div>
+    <h1>My run sheet</h1>
+    <div class="date">Friday 24 July 2026 · O'Hara House, Hamilton</div>
+  </header>
+  <main id="app"><div class="note">Loading…</div></main>
+</div>
+
+<script>
+const CONFIG={ scriptUrl:"https://script.google.com/macros/s/AKfycbwP9pXvZhhq9KViZHlWr6w4bavZX2n-7dPKUXTh6CxNPeSY_98NYVxY7D4lCqqTUPHB7A/exec" };
+
+const $=s=>document.querySelector(s);
+let ROSTER=[], RUN=[], COLS={}, ME=null, TASKS=[], STAMP="";
+
+/* ---------- helpers ---------- */
+async function api(payload){
+  const res=await fetch(CONFIG.scriptUrl,{method:"POST",redirect:"follow",
+    headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(payload)});
+  const data=await res.json(); if(!data.ok) throw new Error(data.error||"error"); return data;
+}
+function parseTime(s){
+  if(s==null) return null; s=String(s).trim().toLowerCase().replace(/\./g,"");
+  if(!s) return null;
+  const m=s.match(/^(\d{1,2})(?::(\d{2}))?(?::\d{2})?\s*([ap]m)?$/);
+  if(!m) return null; let h=+m[1], mn=m[2]?+m[2]:0, ap=m[3];
+  if(ap==="pm"&&h<12) h+=12; if(ap==="am"&&h===12) h=0;
+  if(h>23||mn>59) return null; return h*60+mn;
+}
+function parseTiming(str){
+  if(str==null) return null;
+  const parts=String(str).replace(/\u00a0/g," ").split(/\s*(?:–|—|-|to)\s*/i).filter(Boolean);
+  if(!parts.length) return null;
+  const a=parseTime(parts[0]); if(a==null) return null;
+  if(parts.length<2) return {start:a,end:a+15};
+  const b=parseTime(parts[1]); if(b==null||b<=a) return null;
+  return {start:a,end:b};
+}
+function lblAP(m){ if(m==null) return ""; let h=Math.floor(m/60),mn=m%60,ap=h>=12?"PM":"AM",hh=h%12||12;
+  return hh+":"+String(mn).padStart(2,"0")+" "+ap; }
+function isDone(s){ return /complete|done|✓|yes|true/i.test(String(s||"")); }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function remember(n){ try{ n?localStorage.setItem("bjar_me",n):localStorage.removeItem("bjar_me"); }catch(e){} }
+function recall(){ try{ return localStorage.getItem("bjar_me"); }catch(e){ return null; } }
+
+/* ---------- load ---------- */
+async function load(){
+  const data=await api({action:"load"});
+  RUN=data.run||[];
+  ROSTER=parseRoster(data.team||[]);
+  COLS=detectCols(RUN);
+  STAMP=new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
+}
+function parseRoster(rows){
+  if(!rows.length) return [];
+  const head=rows[0].map(c=>String(c).toLowerCase());
+  const find=re=>head.findIndex(h=>re.test(h));
+  const ci={name:find(/name/), role:find(/role/), tin:find(/time in|^in$/), tout:find(/time out|^out$/)};
+  const out=[];
+  for(let i=1;i<rows.length;i++){ const r=rows[i]; const nm=String(r[ci.name>=0?ci.name:1]||"").trim();
+    if(!nm) continue;
+    out.push({ name:nm, role:String(r[ci.role>=0?ci.role:2]||"Volunteer").trim()||"Volunteer",
+      in:ci.tin>=0?parseTime(r[ci.tin]):null, out:ci.tout>=0?parseTime(r[ci.tout]):null }); }
+  out.sort((a,b)=> a.role===b.role ? a.name.localeCompare(b.name) : (a.role==="Executive"?-1:1));
+  return out;
+}
+function detectCols(rows){
+  let hr=-1;
+  for(let i=0;i<Math.min(rows.length,12);i++){ const low=rows[i].map(c=>String(c).trim().toLowerCase());
+    if(low.includes("timing")||low.includes("start")){ hr=i; break; } }
+  const head=(hr<0?(rows[0]||[]):rows[hr]).map(c=>String(c).toLowerCase());
+  const find=(re,def)=>{ const i=head.findIndex(h=>re.test(h)); return i<0?def:i; };
+  return { hr, start:find(/start|timing/,0), end:find(/end|finish/,-1), room:find(/room|venue|location/,1),
+    desc:find(/desc|activit|item|session/,2), resp:find(/responsib|duties|task/,3),
+    team:find(/team member|assigned|personnel|who/,4), status:find(/status|complete|done/,5) };
+}
+function tasksFor(name){
+  const me=name.trim().toLowerCase(); const out=[]; let blk="";
+  for(let r=(COLS.hr<0?0:COLS.hr+1); r<RUN.length; r++){
+    const c=RUN[r]||[]; const sc=String(c[COLS.start]||"").trim(); const desc=String(c[COLS.desc]||"").trim();
+    if(!desc){ if(sc) blk=sc; continue; }
+    const members=String(c[COLS.team]||"").split(/[,;]/).map(x=>x.trim()).filter(Boolean);
+    if(!members.some(m=>m.toLowerCase()===me)) continue;
+    let tm=null; const ec=COLS.end>=0?String(c[COLS.end]||"").trim():"";
+    if(ec){ const a=parseTime(sc),b=parseTime(ec); if(a!=null&&b!=null&&b>a) tm={start:a,end:b}; }
+    if(!tm) tm=parseTiming(sc);
+    out.push({ row:r+1, block:blk, start:tm?tm.start:null, end:tm?tm.end:null,
+      room:String(c[COLS.room]||"").trim(), desc, resp:String(c[COLS.resp]||"").trim(),
+      status:String(c[COLS.status]||"").trim(), others:members.filter(m=>m.toLowerCase()!==me) });
+  }
+  out.sort((a,b)=>(a.start==null?1e9:a.start)-(b.start==null?1e9:b.start));
+  return out;
+}
+
+/* ---------- screens ---------- */
+function renderPicker(filter){
+  const f=(filter||"").trim().toLowerCase();
+  const list=ROSTER.filter(p=>!f||p.name.toLowerCase().includes(f));
+  $("#app").innerHTML=`<div class="pick">
+    <h2>Who are you?</h2>
+    <input class="search" id="search" placeholder="Type your name…" autocomplete="off" value="${esc(filter||"")}">
+    <div class="names">${
+      list.length?list.map(p=>`<button class="name" data-name="${esc(p.name)}">${esc(p.name)}
+        <span class="role ${p.role==="Executive"?"Executive":""}">${esc(p.role)}</span></button>`).join("")
+      :`<div class="note">No names match. The roster may not be set up yet — check with an organiser.</div>`}
+    </div></div>`;
+  const s=$("#search");
+  s.addEventListener("input", e=>{ const v=e.target.value; renderPicker(v); const n=$("#search");
+    n.focus(); n.setSelectionRange(n.value.length,n.value.length); });
+  $("#app").querySelectorAll("[data-name]").forEach(b=>b.addEventListener("click",()=>{
+    ME=b.dataset.name; remember(ME); renderTasks();
+  }));
+}
+function renderTasks(){
+  TASKS=tasksFor(ME);
+  const me=ROSTER.find(p=>p.name===ME);
+  const shift=me&&me.in!=null&&me.out!=null?`On site ${lblAP(me.in)} – ${lblAP(me.out)}`:"";
+  let body="";
+  if(!TASKS.length){
+    body=`<div class="note">No tasks are assigned to you yet.<br>Check back here later, or ask an organiser.</div>`;
+  } else {
+    let blk=null;
+    TASKS.forEach(t=>{
+      if(t.block!==blk){ blk=t.block; body+=`<div class="blk">${esc(blk||"Schedule")}</div>`; }
+      const done=isDone(t.status);
+      const time=t.start!=null?`${lblAP(t.start)} – ${lblAP(t.end)}`:"";
+      body+=`<div class="card task ${done?"done":""}" data-task="${t.row}">
+        <span class="box"><svg viewBox="0 0 18 18"><polyline points="3,9 7,13 15,4"></polyline></svg></span>
+        <div class="body">
+          ${time?`<div class="time">${time}</div>`:""}
+          <div class="desc">${esc(t.desc)}</div>
+          ${t.room?`<span class="room">${esc(t.room)}</span>`:""}
+          ${t.resp?`<div class="resp">${esc(t.resp)}</div>`:""}
+          ${t.others.length?`<div class="with">With ${esc(t.others.join(", "))}</div>`:""}
+        </div></div>`;
+    });
+  }
+  const done=TASKS.filter(t=>isDone(t.status)).length, tot=TASKS.length;
+  const pct=tot?Math.round(done/tot*100):0;
+  $("#app").innerHTML=`
+    <div class="hello"><div>
+        <div class="who">Hi, ${esc(ME.split(" ")[0])}</div>
+        ${shift?`<div class="shift">${shift}</div>`:""}
+      </div><button class="switch" id="switch">Not you?</button></div>
+    ${tot?`<div class="prog"><div class="pbar"><i style="width:${pct}%"></i></div>
+      <span class="pcount">${done}/${tot} done</span></div>`:""}
+    ${body}
+    <div class="foot"><button class="refresh" id="refresh">↻ Refresh</button>
+      <span class="stamp">Updated ${STAMP}</span></div>`;
+  $("#switch").addEventListener("click",()=>{ ME=null; remember(null); renderPicker(""); });
+  $("#refresh").addEventListener("click", async ()=>{ const b=$("#refresh"); b.textContent="…";
+    try{ await load(); renderTasks(); }catch(e){ b.textContent="↻ Refresh"; toast("Couldn't refresh."); } });
+  $("#app").querySelectorAll("[data-task]").forEach(row=>row.addEventListener("click",()=>toggle(row)));
+}
+async function toggle(row){
+  const t=TASKS.find(x=>String(x.row)===row.dataset.task); if(!t) return;
+  const wasDone=isDone(t.status); const newStatus=wasDone?"":"Complete";
+  t.status=newStatus; RUN[t.row-1][COLS.status]=newStatus;   // optimistic
+  row.classList.toggle("done",!wasDone); updateProgress();
+  try{ await api({action:"markStatus", row:t.row, status:newStatus}); }
+  catch(e){
+    t.status=wasDone?"Complete":""; RUN[t.row-1][COLS.status]=t.status;
+    row.classList.toggle("done",wasDone); updateProgress();
+    toast("Couldn't save — check your connection.");
+  }
+}
+function updateProgress(){
+  const done=TASKS.filter(t=>isDone(t.status)).length, tot=TASKS.length;
+  const bar=$(".pbar i"), cnt=$(".pcount");
+  if(bar) bar.style.width=(tot?Math.round(done/tot*100):0)+"%";
+  if(cnt) cnt.textContent=`${done}/${tot} done`;
+}
+let toastT;
+function toast(msg){ let el=$(".toast"); if(!el){ el=document.createElement("div"); el.className="toast"; document.body.appendChild(el); }
+  el.textContent=msg; clearTimeout(toastT); toastT=setTimeout(()=>el.remove(),3200); }
+
+/* ---------- boot ---------- */
+(async function(){
+  try{
+    await load();
+    const saved=recall();
+    if(saved && ROSTER.some(p=>p.name===saved)){ ME=saved; renderTasks(); }
+    else renderPicker("");
+  }catch(e){
+    $("#app").innerHTML=`<div class="note">Couldn't reach the schedule.<br>Check your connection and reload the page.</div>`;
+  }
+})();
+</script>
+</body>
+</html>
