@@ -38,7 +38,10 @@
   .hello{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin:4px 2px 14px}
   .hello .who{font-family:"Fraunces",Georgia,serif; font-size:20px; font-weight:600}
   .hello .shift{font-size:12.5px; color:var(--ink-faint); margin-top:2px}
-  .switch{flex:none; font-size:12.5px; font-weight:600; color:var(--ocean); background:none; border:none; cursor:pointer; padding:4px 2px}
+  .back{display:inline-flex; align-items:center; gap:6px; font-family:inherit; font-size:13.5px; font-weight:600;
+    color:var(--ocean); background:none; border:none; cursor:pointer; padding:6px 2px; margin:2px 0 6px}
+  .back .arw{font-size:17px; line-height:1; margin-top:-1px}
+  .back:active{color:var(--ocean-dk)}
   .prog{display:flex; align-items:center; gap:11px; margin:0 2px 18px}
   .pbar{flex:1; height:10px; border-radius:99px; background:var(--line-soft); border:1px solid var(--line); overflow:hidden}
   .pbar i{display:block; height:100%; width:0; background:var(--ok); border-radius:99px; transition:width .3s}
@@ -214,16 +217,17 @@ function renderTasks(){
   const done=TASKS.filter(t=>isDone(t.status)).length, tot=TASKS.length;
   const pct=tot?Math.round(done/tot*100):0;
   $("#app").innerHTML=`
+    <button class="back" id="back"><span class="arw">←</span> All staff</button>
     <div class="hello"><div>
         <div class="who">Hi, ${esc(ME.split(" ")[0])}</div>
         ${shift?`<div class="shift">${shift}</div>`:""}
-      </div><button class="switch" id="switch">Not you?</button></div>
+      </div></div>
     ${tot?`<div class="prog"><div class="pbar"><i style="width:${pct}%"></i></div>
       <span class="pcount">${done}/${tot} done</span></div>`:""}
     ${body}
     <div class="foot"><button class="refresh" id="refresh">↻ Refresh</button>
       <span class="stamp">Updated ${STAMP}</span></div>`;
-  $("#switch").addEventListener("click",()=>{ ME=null; remember(null); renderPicker(""); });
+  $("#back").addEventListener("click",()=>{ ME=null; remember(null); renderPicker(""); });
   $("#refresh").addEventListener("click", async ()=>{ const b=$("#refresh"); b.textContent="…";
     try{ await load(); renderTasks(); }catch(e){ b.textContent="↻ Refresh"; toast("Couldn't refresh."); } });
   $("#app").querySelectorAll("[data-task]").forEach(row=>row.addEventListener("click",()=>toggle(row)));
