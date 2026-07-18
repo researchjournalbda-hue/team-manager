@@ -139,6 +139,19 @@
   .chip .x:hover{color:var(--bad)}
   .assign-sel{width:100%; font-family:inherit; font-size:12.5px; padding:7px 8px; border:1px solid var(--line);
     border-radius:8px; background:var(--card-2); color:var(--ink-soft); margin-top:9px}
+  /* edit lock */
+  .lockbar{display:flex; align-items:flex-start; gap:11px; padding:13px 15px; margin:0 0 16px;
+    border:1px solid #e6c9a8; background:#fdf4e7; border-radius:12px}
+  .lockbar .ic{flex:none; font-size:15px; line-height:1.3}
+  .lockbar .msg{flex:1; font-size:13px; color:#7a4f16; line-height:1.5}
+  .lockbar .msg b{color:#5f3d10}
+  .lockbar button{flex:none; font-family:inherit; font-size:12.5px; font-weight:600; color:var(--ocean);
+    background:#fff; border:1px solid var(--line); border-radius:9px; padding:8px 12px; cursor:pointer}
+  .lockbar.stale{border-color:#e0b4b4; background:#fdf0f0}
+  .lockbar.stale .msg{color:#8a3535}
+  body.locked .assign-sel,body.locked .chip .x,body.locked [data-done]{pointer-events:none; opacity:.5}
+  body.locked .sgrid{opacity:.86}
+
   .assign-sel:focus{outline:none;border-color:var(--ocean)}
 
   /* section 03 — overview, controls, grouping, person view */
@@ -261,6 +274,7 @@
     <div class="shead"><span class="n">03</span><h2>Run sheet &amp; assignments</h2>
       <span class="sub">grouped by time block · assign people · tick when it's done</span></div>
     <div class="rule"></div>
+    <div id="lockBar" class="lockbar hide"></div>
     <div id="ovStats" class="stats"></div>
     <div class="ctrls">
       <div class="seg" id="viewToggle">
@@ -390,14 +404,14 @@ document.addEventListener("change", e=>{
   if(f){ const p=person(f.dataset.p); if(p){ const field=f.dataset.f;
     if(field==="role") p.role=f.value; else p[field]=hhmmToMin(f.value); renderAll(); } return; }
   const d=e.target.closest("[data-done]");
-  if(d){ const s=SESSIONS.find(x=>x.id===d.dataset.done); if(s){ s.status=d.checked?"Complete":""; renderAll(); } }
+  if(d){ const s=SESSIONS.find(x=>x.id===d.dataset.done); if(s){ s.status=d.checked?"Complete":""; DIRTY=true; renderAll(); } }
 });
 document.addEventListener("click", e=>{
   const rm=e.target.closest("[data-remove]");
   const rmA=e.target.closest("[data-unassign]");
   if(rm){ const id=rm.dataset.remove; TEAM=TEAM.filter(p=>p.id!==id);
     SESSIONS.forEach(s=>assign[s.id]=(assign[s.id]||[]).filter(x=>x!==id)); renderAll(); }
-  if(rmA){ const [sid,pid]=rmA.dataset.unassign.split("|"); assign[sid]=(assign[sid]||[]).filter(x=>x!==pid); renderAll(); }
+  if(rmA){ const [sid,pid]=rmA.dataset.unassign.split("|"); assign[sid]=(assign[sid]||[]).filter(x=>x!==pid); DIRTY=true; renderAll(); }
 });
 
 /* add person */
@@ -610,8 +624,9 @@ function renderSessions(){
     const sid=e.target.dataset.add, pid=e.target.value; if(!pid) return;
     if(!assign[sid]) assign[sid]=[];
     if(!assign[sid].includes(pid)) assign[sid].push(pid);
-    renderAll();
+    DIRTY=true; renderAll();
   }));
+  if(typeof enforceLock==="function") enforceLock();
 }
 
 /* ---------- timeline ---------- */
@@ -695,18 +710,92 @@ async function pullState(){
   const res=await api({action:"load"});
   applyRoster(res.team||[]);
   const n=applyRunSheet(res.run||[]);
+  REV=res.rev||""; DIRTY=false; STALE=false; applyLock(res.lock||{active:false});
   renderAll(); return n;
 }
+
+/* ---------- edit lock ----------
+ * Assignments are written back by row number, so while anyone is editing the
+ * Run Sheet or Team tab in the spreadsheet those row numbers are unreliable.
+ * The backend stamps a lock on every such edit; the app goes read-only until it
+ * clears (about two minutes after the last keystroke), then reloads the fresh
+ * schedule. STALE means the sheet changed shape while this page was open. */
+let REV="", LOCK={active:false}, STALE=false, DIRTY=false, pollT=null;
+function locked(){ return !!LOCK.active || STALE; }
+function applyLock(lock){ LOCK=lock||{active:false}; renderLockBar(); enforceLock(); }
+function renderLockBar(){
+  const bar=$("#lockBar"); if(!bar) return;
+  if(STALE){
+    bar.className="lockbar stale";
+    bar.innerHTML=`<span class="ic">⚠</span><span class="msg"><b>The run sheet changed while this page was open.</b>
+      Assignments are locked because the rows have moved — reload to pick up the new schedule.</span>
+      <button id="lockReload">Reload now</button>`;
+  } else if(LOCK.active){
+    bar.className="lockbar";
+    bar.innerHTML=`<span class="ic">🔒</span><span class="msg"><b>Assignments locked while the spreadsheet is being edited.</b>
+      ${esc(LOCK.by||"Someone")} is editing the ${esc(LOCK.tab||"sheet")} tab. This unlocks automatically about
+      ${LOCK.secondsLeft!=null?LOCK.secondsLeft:120}s after the last edit.</span>
+      <button id="lockReload">Check now</button>`;
+  } else { bar.className="lockbar hide"; bar.innerHTML=""; return; }
+  const b=$("#lockReload");
+  if(b) b.addEventListener("click", async ()=>{
+    if(DIRTY && !confirm("Reloading will replace what is on screen with the sheet's current version. Any assignments you have not saved will be lost. Continue?")) return;
+    b.textContent="…";
+    try{ STALE=false; await pullState(); }catch(e){ b.textContent="Retry"; } });
+}
+function enforceLock(){
+  const L=locked();
+  document.body.classList.toggle("locked",L);
+  const save=$("#btnSave"), push=$("#btnPush");
+  if(save){ save.disabled=L||!CONFIG.scriptUrl; save.title=L?"Locked while the spreadsheet is being edited":"Write assignments + status back to the Sheet"; }
+  if(push){ push.disabled=L||!CONFIG.scriptUrl; }
+  document.querySelectorAll(".assign-sel").forEach(s=>s.disabled=L);
+  document.querySelectorAll("[data-done]").forEach(c=>c.disabled=L);
+}
+async function pollLock(){
+  if(!CONFIG.scriptUrl) return;
+  try{
+    const res=await api({action:"status"});
+    if(!res||!res.ok) return;
+    const wasLocked=locked();
+    const revMoved = !!(REV && res.rev && res.rev!==REV);
+    LOCK=res.lock||{active:false};
+    if(LOCK.active){ renderLockBar(); enforceLock(); return; }   // still editing: just stay locked
+    if(revMoved){
+      // the sheet changed shape. Safe to adopt it only if nothing is unsaved here;
+      // otherwise stay locked and let the person decide, so no work is thrown away.
+      if(DIRTY){ STALE=true; renderLockBar(); enforceLock(); return; }
+      try{ STALE=false; await pullState(); }
+      catch(e){ STALE=true; renderLockBar(); enforceLock(); }
+      return;
+    }
+    STALE=false; renderLockBar(); enforceLock();
+    if(wasLocked){ try{ if(!DIRTY) await pullState(); }catch(e){} }
+  }catch(e){}
+}
+function startPolling(){ if(pollT) clearInterval(pollT); pollT=setInterval(pollLock, 15000); }
+
 $("#btnLoad").addEventListener("click", async ()=>{
-  try{ const n=await pullState(); flash($("#btnLoad"), n?`Loaded ${n} ✓`:"No activities"); }
+  try{ STALE=false; const n=await pullState(); flash($("#btnLoad"), n?`Loaded ${n} ✓`:"No activities"); }
   catch(e){ alert("Load failed — check the script URL and deployment."); }
 });
 $("#btnSave").addEventListener("click", async ()=>{
+  if(locked()){ alert("Assignments are locked while the spreadsheet is being edited. Wait for the lock to clear, then reload."); return; }
   try{
     const run=SESSIONS.map(s=>({ row:s.row,
       members:(assign[s.id]||[]).map(pid=>person(pid)?.name).filter(Boolean).join(", "),
       status: isDone(s.status)?"Complete":"" }));
-    await api({action:"save", team:TEAM.map(p=>({...p, inLabel:lblAP(p.in), outLabel:lblAP(p.out)})), run});
+    const res=await api({action:"save", baseRev:REV,
+      team:TEAM.map(p=>({...p, inLabel:lblAP(p.in), outLabel:lblAP(p.out)})), run});
+    if(res && res.ok===false){
+      if(res.code==="locked"){ applyLock(res.lock||{active:true});
+        alert("Save blocked — someone is editing the spreadsheet right now. Your assignments are still on screen; try again once the lock clears."); }
+      else if(res.code==="stale"){ STALE=true; renderLockBar(); enforceLock();
+        alert("Save blocked — the run sheet changed while this page was open, so saving now could write people onto the wrong rows. Reload to pick up the new schedule."); }
+      else alert("Save failed: "+(res.error||"unknown error"));
+      return;
+    }
+    REV=(res&&res.rev)||REV; STALE=false; DIRTY=false; renderLockBar(); enforceLock();
     flash($("#btnSave"),"Saved ✓");
   }catch(e){ alert("Save failed — check the script URL and deployment."); }
 });
@@ -736,8 +825,8 @@ renderAll();
 if(CONFIG.scriptUrl){
   $("#modeText").textContent="Loading run sheet…";
   pullState()
-    .then(()=>{ $("#modeText").textContent="Connected to Sheet"; })
-    .catch(()=>{ $("#modeText").textContent="Connected (load failed)"; });
+    .then(()=>{ $("#modeText").textContent="Connected to Sheet"; startPolling(); })
+    .catch(()=>{ $("#modeText").textContent="Connected (load failed)"; startPolling(); });
 }
 </script>
 </body>
