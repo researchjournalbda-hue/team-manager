@@ -90,13 +90,15 @@
 const CONFIG={ scriptUrl:"https://script.google.com/macros/s/AKfycbwP9pXvZhhq9KViZHlWr6w4bavZX2n-7dPKUXTh6CxNPeSY_98NYVxY7D4lCqqTUPHB7A/exec" };
 
 const $=s=>document.querySelector(s);
-let ROSTER=[], RUN=[], COLS={}, ME=null, TASKS=[], STAMP="";
+let ROSTER=[], RUN=[], COLS={}, ME=null, TASKS=[], STAMP="", REV="";
 
 /* ---------- helpers ---------- */
 async function api(payload){
   const res=await fetch(CONFIG.scriptUrl,{method:"POST",redirect:"follow",
     headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(payload)});
-  const data=await res.json(); if(!data.ok) throw new Error(data.error||"error"); return data;
+  const data=await res.json();
+  if(!data.ok){ const err=new Error(data.error||data.code||"error"); err.code=data.code; err.lock=data.lock; throw err; }
+  return data;
 }
 function parseTime(s){
   if(s==null) return null; s=String(s).trim().toLowerCase().replace(/\./g,"");
@@ -128,6 +130,7 @@ async function load(){
   RUN=data.run||[];
   ROSTER=parseRoster(data.team||[]);
   COLS=detectCols(RUN);
+  REV=data.rev||"";
   STAMP=new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
 }
 function parseRoster(rows){
@@ -237,11 +240,16 @@ async function toggle(row){
   const wasDone=isDone(t.status); const newStatus=wasDone?"":"Complete";
   t.status=newStatus; RUN[t.row-1][COLS.status]=newStatus;   // optimistic
   row.classList.toggle("done",!wasDone); updateProgress();
-  try{ await api({action:"markStatus", row:t.row, status:newStatus}); }
+  try{
+    const res=await api({action:"markStatus", row:t.row, status:newStatus, baseRev:REV});
+    if(res.rev) REV=res.rev;
+  }
   catch(e){
     t.status=wasDone?"Complete":""; RUN[t.row-1][COLS.status]=t.status;
     row.classList.toggle("done",wasDone); updateProgress();
-    toast("Couldn't save — check your connection.");
+    if(e.code==="locked") toast("The run sheet is being edited right now — try again in a moment.");
+    else if(e.code==="stale"){ toast("The run sheet changed — refreshing your tasks."); refreshSoon(); }
+    else toast("Couldn't save — check your connection.");
   }
 }
 function updateProgress(){
@@ -250,6 +258,9 @@ function updateProgress(){
   if(bar) bar.style.width=(tot?Math.round(done/tot*100):0)+"%";
   if(cnt) cnt.textContent=`${done}/${tot} done`;
 }
+let refreshT;
+function refreshSoon(){ clearTimeout(refreshT); refreshT=setTimeout(async ()=>{
+  try{ await load(); renderTasks(); }catch(e){} }, 1200); }
 let toastT;
 function toast(msg){ let el=$(".toast"); if(!el){ el=document.createElement("div"); el.className="toast"; document.body.appendChild(el); }
   el.textContent=msg; clearTimeout(toastT); toastT=setTimeout(()=>el.remove(),3200); }
